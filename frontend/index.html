@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI ProofReader + Editor</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      body {
+        font-family: "Inter", sans-serif;
+      }
+      .loader {
+        border: 4px solid #f3f3f3;
+        border-top: 4px solid #4f46e5;
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        animation: spin 1s linear infinite;
+      }
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+      .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: rgba(0, 0, 0, 0.6);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 50;
+        overflow-y: auto;
+        padding: 2rem;
+      }
+      .form-section {
+        border-top: 1px solid #e5e7eb;
+        padding-top: 1.5rem;
+      }
+    </style>
+  </head>
+  <body class="bg-gray-100 text-gray-800">
+    <div class="container mx-auto p-4 md:p-8">
+      <header class="text-center mb-10">
+        <h1 class="text-4xl md:text-5xl font-bold text-gray-900">
+          AI ProofReader + Editor
+        </h1>
+        <p class="mt-2 text-lg text-gray-600">
+          Transform your raw draft into a publication-ready manuscript.
+        </p>
+      </header>
+
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        <!-- Left Panel: Controls -->
+        <aside class="lg:col-span-4 bg-white p-6 rounded-xl shadow-lg h-fit">
+          <form id="processForm">
+            <div class="space-y-6">
+              <div>
+                <h2 class="text-lg font-semibold text-gray-800">
+                  1. Upload Draft
+                </h2>
+                <label
+                  for="file-upload"
+                  class="mt-2 cursor-pointer group block rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 hover:bg-indigo-50 text-center p-6"
+                >
+                  <svg
+                    class="mx-auto h-10 w-10 text-gray-400 group-hover:text-indigo-500"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                  >
+                    <path
+                      d="M11.25 4.533A9.708 9.708 0 001.5 12.318c0 5.385 4.365 9.75 9.75 9.75s9.75-4.365 9.75-9.75S16.635 2.568 11.25 2.568zm-1.03 12.348a.75.75 0 001.06 0l3-3a.75.75 0 10-1.06-1.06l-1.72 1.72V8.25a.75.75 0 00-1.5 0v5.69l-1.72-1.72a.75.75 0 00-1.06 1.06l3 3z"
+                    />
+                  </svg>
+                  <span
+                    id="fileName"
+                    class="mt-2 block text-sm font-medium text-gray-900"
+                    >Click to upload .docx file</span
+                  >
+                  <input
+                    id="file-upload"
+                    name="file"
+                    type="file"
+                    class="sr-only"
+                    accept=".docx"
+                  />
+                </label>
+              </div>
+
+              <div>
+                <h2 class="text-lg font-semibold text-gray-800">
+                  2. Set Initial Tone
+                </h2>
+                <select
+                  id="tone"
+                  name="tone"
+                  class="mt-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                >
+                  <option>Formal and Scholarly</option>
+                  <option>Clear and Accessible</option>
+                  <option>Poetic and Reflective</option>
+                  <option>Conversational and Warm</option>
+                </select>
+              </div>
+
+              <div class="pt-4">
+                <button
+                  type="submit"
+                  class="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                >
+                  Analyze & Configure
+                </button>
+              </div>
+            </div>
+          </form>
+        </aside>
+
+        <!-- Right Panel: Results -->
+        <main class="lg:col-span-8">
+          <div
+            id="resultsPanel"
+            class="bg-white p-6 rounded-xl shadow-lg hidden"
+          >
+            <div
+              class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4"
+            >
+              <h2 class="text-2xl font-bold text-gray-900 mb-2 sm:mb-0">
+                Final Edited Results
+              </h2>
+              <button
+                id="downloadBtn"
+                class="py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700"
+              >
+                Download Formatted .docx
+              </button>
+            </div>
+
+            <div>
+              <h3 class="text-lg font-semibold text-gray-800">
+                Edited Manuscript Preview
+              </h3>
+              <textarea
+                id="manuscriptPreview"
+                rows="15"
+                class="mt-2 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm bg-gray-50"
+                readonly
+              ></textarea>
+            </div>
+
+            <div id="glossarySection" class="mt-6">
+              <h3 class="text-lg font-semibold text-gray-800">
+                Generated Glossary
+              </h3>
+              <div
+                id="glossaryTableContainer"
+                class="mt-2 overflow-x-auto"
+              ></div>
+            </div>
+          </div>
+          <div
+            id="placeholderPanel"
+            class="text-center p-10 bg-white rounded-xl shadow-lg flex flex-col justify-center items-center h-full"
+          >
+            <svg
+              class="w-16 h-16 text-gray-300"
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke-width="1.5"
+              stroke="currentColor"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"
+              />
+            </svg>
+            <p class="mt-4 text-gray-500">
+              Your edited manuscript will appear here after processing.
+            </p>
+          </div>
+        </main>
+      </div>
+    </div>
+
+    <!-- Modals -->
+    <div id="loadingModal" class="modal-overlay hidden">
+      <div class="bg-white p-8 rounded-lg shadow-xl text-center">
+        <div class="loader mx-auto"></div>
+        <p class="mt-4 text-lg font-medium text-gray-700">
+          Your AI Editor is at work...
+        </p>
+      </div>
+    </div>
+
+    <div id="formattingModal" class="modal-overlay hidden">
+      <div class="bg-white p-6 md:p-8 rounded-lg shadow-xl w-full max-w-3xl">
+        <h2 class="text-2xl font-bold mb-6 text-gray-900 border-b pb-4">
+          Detailed Formatting Options
+        </h2>
+        <form
+          id="formattingForm"
+          class="space-y-6 max-h-[70vh] overflow-y-auto pr-4"
+        >
+          <div id="detectedLanguagesSection"></div>
+          <div id="globalFormattingSection"></div>
+          <div id="languageFormattingSection" class="space-y-6"></div>
+        </form>
+        <div class="pt-6 border-t mt-6 flex justify-end">
+          <button
+            id="finalizeBtn"
+            class="w-full sm:w-auto flex justify-center py-3 px-6 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700"
+          >
+            Apply Formatting & Get Result
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const API_BASE_URL = "http://127.0.0.1:8000";
+      const processForm = document.getElementById("processForm");
+      const fileUpload = document.getElementById("file-upload");
+      const fileNameDisplay = document.getElementById("fileName");
+      const loadingModal = document.getElementById("loadingModal");
+      const resultsPanel = document.getElementById("resultsPanel");
+      const placeholderPanel = document.getElementById("placeholderPanel");
+      const manuscriptPreview = document.getElementById("manuscriptPreview");
+      const glossaryContainer = document.getElementById(
+        "glossaryTableContainer"
+      );
+      const downloadBtn = document.getElementById("downloadBtn");
+      const formattingModal = document.getElementById("formattingModal");
+      const finalizeBtn = document.getElementById("finalizeBtn");
+
+      let analysisData = {}; // Will store { raw_text, detected_languages }
+      let finalProcessedData = {};
+      let lastFormattingOptions = {}; // Will store the chosen formatting for the download step
+
+      fileUpload.addEventListener("change", () => {
+        fileNameDisplay.textContent =
+          fileUpload.files.length > 0
+            ? fileUpload.files[0].name
+            : "Click to upload .docx file";
+      });
+
+      // STEP 1: Analyze Document
+      processForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        if (!fileUpload.files[0]) {
+          alert("Please select a .docx file.");
+          return;
+        }
+
+        const formData = new FormData();
+        formData.append("file", fileUpload.files[0]);
+
+        showLoader(true, "Analyzing document structure...");
+
+        try {
+          const response = await fetch(`${API_BASE_URL}/analyze-document/`, {
+            method: "POST",
+            body: formData,
+          });
+
+          if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.detail || "Analysis failed.");
+          }
+
+          analysisData = await response.json();
+          showFormattingOptions(analysisData.detected_languages);
+        } catch (error) {
+          alert(`Error: ${error.message}`);
+        } finally {
+          showLoader(false);
+        }
+      });
+
+      function showFormattingOptions(languages) {
+        const detectedLangsContainer = document.getElementById(
+          "detectedLanguagesSection"
+        );
+        const globalContainer = document.getElementById(
+          "globalFormattingSection"
+        );
+        const langContainer = document.getElementById(
+          "languageFormattingSection"
+        );
+
+        // --- Populate Detected Languages ---
+        detectedLangsContainer.innerHTML = `
+                <div>
+                    <h3 class="text-lg font-semibold text-gray-800">Detected Languages</h3>
+                    <div class="flex flex-wrap gap-2 mt-3">
+                        ${languages
+                          .map(
+                            (lang) =>
+                              `<span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-indigo-100 text-indigo-800">${lang}</span>`
+                          )
+                          .join("")}
+                    </div>
+                </div>
+            `;
+
+        // --- Populate Global Formatting ---
+        globalContainer.innerHTML = `
+                <div class="form-section">
+                    <h3 class="text-lg font-semibold text-gray-800">Global Document Settings</h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+                        <div><label class="block text-sm font-medium text-gray-700">Line Spacing</label><select id="line_spacing" class="mt-1 block w-full rounded-md border-gray-300"><option value="1.0">Single</option><option value="1.5" selected>1.5</option><option value="2.0">Double</option></select></div>
+                        <div><label class="block text-sm font-medium text-gray-700">Margins (inches)</label><input id="margins" type="number" value="1.0" step="0.1" class="mt-1 block w-full rounded-md border-gray-300"></div>
+                    </div>
+                </div>
+                <div class="form-section">
+                    <h3 class="text-lg font-semibold text-gray-800">Typography</h3>
+                    <div class="space-y-4 mt-4">
+                        <div><label class="block text-sm font-medium text-gray-700">Main Font Family</label><select id="font_family" class="mt-1 block w-full rounded-md border-gray-300"><option>Times New Roman</option><option>Arial</option><option>Georgia</option></select></div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div><label class="block text-sm font-medium text-gray-700">Paragraph Font Size (pt)</label><input id="font_size" type="number" value="12" class="mt-1 block w-full rounded-md border-gray-300"></div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4 items-end">
+                            <div><label class="block text-sm font-medium text-gray-700">Heading 1 Font Size (pt)</label><input id="h1_font_size" type="number" value="24" class="mt-1 block w-full rounded-md border-gray-300"></div>
+                            <label class="flex items-center pb-1"><input type="checkbox" id="h1_bold" checked class="h-4 w-4 rounded border-gray-300"><span class="ml-2 text-sm text-gray-700">Bold</span></label>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4 items-end">
+                            <div><label class="block text-sm font-medium text-gray-700">Heading 2 Font Size (pt)</label><input id="h2_font_size" type="number" value="18" class="mt-1 block w-full rounded-md border-gray-300"></div>
+                            <label class="flex items-center pb-1"><input type="checkbox" id="h2_bold" checked class="h-4 w-4 rounded border-gray-300"><span class="ml-2 text-sm text-gray-700">Bold</span></label>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+        // --- Populate Language-Specific Formatting ---
+        langContainer.innerHTML = ""; // Clear previous
+        if (languages.includes("Sanskrit")) {
+          langContainer.innerHTML += `
+                    <div class="form-section">
+                        <h3 class="text-lg font-semibold text-gray-800">Sanskrit Shloka Formatting</h3>
+                        <div class="space-y-3 mt-4">
+                             <label class="flex items-center"><input type="checkbox" id="shloka_center_align" checked class="h-4 w-4 rounded border-gray-300"><span class="ml-2 text-sm text-gray-700">Center-align shlokas</span></label>
+                             <label class="flex items-center"><input type="checkbox" id="shloka_line_breaks" checked class="h-4 w-4 rounded border-gray-300"><span class="ml-2 text-sm text-gray-700">Add line breaks per half-verse (pāda)</span></label>
+                             <label class="flex items-center"><input type="checkbox" id="shloka_add_numbering" class="h-4 w-4 rounded border-gray-300"><span class="ml-2 text-sm text-gray-700">Attempt to add verse numbering (e.g., 2.47)</span></label>
+                             <div>
+                                <label class="block text-sm font-medium text-gray-700">Translation Style</label>
+                                <select id="shloka_translation_style" class="mt-1 block w-full rounded-md border-gray-300"><option>Below the shloka in plain text</option><option>Italicized below the shloka</option><option>No translation</option></select>
+                            </div>
+                        </div>
+                    </div>
+                 `;
+        }
+
+        formattingModal.classList.remove("hidden");
+      }
+
+      // STEP 2: Finalize Manuscript
+      finalizeBtn.addEventListener("click", async () => {
+        const formattingOptions = {
+          font_family: document.getElementById("font_family").value,
+          font_size: parseInt(document.getElementById("font_size").value),
+          line_spacing: parseFloat(
+            document.getElementById("line_spacing").value
+          ),
+          margins: parseFloat(document.getElementById("margins").value),
+          heading1: {
+            font_size: parseInt(document.getElementById("h1_font_size").value),
+            bold: document.getElementById("h1_bold").checked,
+          },
+          heading2: {
+            font_size: parseInt(document.getElementById("h2_font_size").value),
+            bold: document.getElementById("h2_bold").checked,
+          },
+          sanskrit_shlokas: document.getElementById("shloka_center_align")
+            ? {
+                center_align: document.getElementById("shloka_center_align")
+                  .checked,
+                line_breaks:
+                  document.getElementById("shloka_line_breaks").checked,
+                add_numbering: document.getElementById("shloka_add_numbering")
+                  .checked,
+                translation_style: document.getElementById(
+                  "shloka_translation_style"
+                ).value,
+              }
+            : null,
+        };
+        lastFormattingOptions = formattingOptions; // Store for the download step
+
+        const payload = {
+          raw_text: analysisData.raw_text,
+          tone: document.getElementById("tone").value,
+          generate_glossary: true,
+          formatting_options: formattingOptions,
+        };
+
+        showLoader(true, "Applying final edits & formatting...");
+        formattingModal.classList.add("hidden");
+
+        try {
+          const response = await fetch(`${API_BASE_URL}/finalize-document/`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+          if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.detail || "Final processing failed.");
+          }
+          finalProcessedData = await response.json();
+          displayResults(finalProcessedData);
+        } catch (error) {
+          alert(`Error: ${error.message}`);
+        } finally {
+          showLoader(false);
+        }
+      });
+
+      function displayResults(data) {
+        manuscriptPreview.value = data.edited_manuscript;
+        renderGlossary(data.glossary);
+        placeholderPanel.classList.add("hidden");
+        resultsPanel.classList.remove("hidden");
+      }
+
+      function renderGlossary(glossary) {
+        if (!glossary || glossary.length === 0) {
+          glossaryContainer.innerHTML =
+            '<p class="text-gray-500">No glossary items were generated.</p>';
+          return;
+        }
+        let tableHTML = `<table class="min-w-full divide-y divide-gray-200"><thead class="bg-gray-50"><tr><th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Term</th><th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Transliteration</th><th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Translation</th><th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Context</th></tr></thead><tbody class="bg-white divide-y divide-gray-200">`;
+        glossary.forEach((item) => {
+          tableHTML += `<tr><td class="px-4 py-2 whitespace-nowrap text-sm font-medium text-gray-900">${
+            item.term
+          }</td><td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${
+            item.transliteration
+          }</td><td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${
+            item.translation
+          }</td><td class="px-4 py-2 whitespace-nowrap text-sm text-gray-500">${
+            item.context || ""
+          }</td></tr>`;
+        });
+        tableHTML += "</tbody></table>";
+        glossaryContainer.innerHTML = tableHTML;
+      }
+
+      // STEP 3: Download Document
+      downloadBtn.addEventListener("click", async () => {
+        if (!finalProcessedData.edited_manuscript) {
+          alert("No processed data available to download.");
+          return;
+        }
+
+        const marginValue = lastFormattingOptions.margins || 1.0;
+        const downloadPayload = {
+          edited_manuscript: finalProcessedData.edited_manuscript,
+          glossary: finalProcessedData.glossary,
+          font_family: lastFormattingOptions.font_family,
+          font_size: lastFormattingOptions.font_size,
+          line_spacing: lastFormattingOptions.line_spacing,
+          margin_top: marginValue,
+          margin_bottom: marginValue,
+          margin_left: marginValue,
+          margin_right: marginValue,
+          heading1: lastFormattingOptions.heading1,
+          heading2: lastFormattingOptions.heading2,
+        };
+
+        showLoader(true, "Generating your .docx file...");
+
+        try {
+          const response = await fetch(`${API_BASE_URL}/download-document/`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(downloadPayload),
+          });
+          if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.detail || "Failed to generate document.");
+          }
+          const blob = await response.blob();
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = "Formatted_Manuscript.docx";
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          window.URL.revokeObjectURL(url);
+        } catch (error) {
+          alert(`Failed to download document: ${error.message}`);
+        } finally {
+          showLoader(false);
+        }
+      });
+
+      function showLoader(isLoading, text = "Your AI Editor is at work...") {
+        const loadingText = loadingModal.querySelector("p");
+        loadingText.textContent = text;
+        loadingModal.classList.toggle("hidden", !isLoading);
+        loadingModal.classList.toggle("flex", isLoading);
+      }
+    </script>
+  </body>
+</html>
