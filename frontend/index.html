@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI Publishing Assistant</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      body {
+        font-family: "Inter", sans-serif;
+      }
+      .tab-active {
+        border-bottom-color: #4f46e5;
+        color: #4f46e5;
+      }
+      .tab-inactive {
+        border-bottom-color: transparent;
+        color: #6b7280;
+      }
+      #interactiveEditor {
+        display: none;
+      } /* Hidden by default */
+      .loader {
+        border: 4px solid #f3f3f3;
+        border-top: 4px solid #4f46e5;
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        animation: spin 1s linear infinite;
+      }
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+      .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: rgba(0, 0, 0, 0.6);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 50;
+      }
+    </style>
+  </head>
+  <body class="bg-gray-50 text-gray-800">
+    <div class="container mx-auto p-4 md:p-8">
+      <header class="text-center mb-10">
+        <h1 class="text-4xl md:text-5xl font-bold text-gray-900">
+          AI Publishing Assistant
+        </h1>
+        <p class="mt-2 text-lg text-gray-600">
+          Your intelligent partner for proofreading and formatting book drafts.
+        </p>
+      </header>
+
+      <main
+        class="bg-white rounded-xl shadow-lg p-6 md:p-8 w-full max-w-5xl mx-auto"
+      >
+        <!-- Tabs for different features -->
+        <div class="border-b border-gray-200 mb-6">
+          <nav class="-mb-px flex space-x-6" aria-label="Tabs">
+            <button
+              id="tab-main"
+              onclick="switchTab('main')"
+              class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm tab-active"
+            >
+              Full Draft Processor
+            </button>
+            <button
+              id="tab-interactive"
+              onclick="switchTab('interactive')"
+              class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm tab-inactive"
+            >
+              Interactive Editor
+            </button>
+            <button
+              id="tab-analyze"
+              onclick="switchTab('analyze')"
+              class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm tab-inactive"
+            >
+              Analyze Document
+            </button>
+          </nav>
+        </div>
+
+        <!-- Main Proofreading Form -->
+        <div id="mainProcessor">
+          <form id="uploadForm">
+            <div class="space-y-8">
+              <div>
+                <h2 class="text-xl font-semibold text-gray-800 mb-4">
+                  1. Upload Your Manuscript
+                </h2>
+                <div
+                  class="mt-2 flex justify-center rounded-lg border border-dashed border-gray-900/25 px-6 py-10"
+                >
+                  <div class="text-center">
+                    <svg
+                      class="mx-auto h-12 w-12 text-gray-400"
+                      viewBox="0 0 24 24"
+                      fill="currentColor"
+                      aria-hidden="true"
+                    >
+                      <path
+                        fill-rule="evenodd"
+                        d="M1.5 6a2.25 2.25 0 012.25-2.25h16.5A2.25 2.25 0 0122.5 6v12a2.25 2.25 0 01-2.25 2.25H3.75A2.25 2.25 0 011.5 18V6zM3 16.06V18c0 .414.336.75.75.75h16.5A.75.75 0 0021 18v-1.94l-2.69-2.689a1.5 1.5 0 00-2.12 0l-.88.879.97.97a.75.75 0 11-1.06 1.06l-5.16-5.159a1.5 1.5 0 00-2.12 0L3 16.061zm10.125-7.81a1.125 1.125 0 112.25 0 1.125 1.125 0 01-2.25 0z"
+                        clip-rule="evenodd"
+                      />
+                    </svg>
+                    <div class="mt-4 flex text-sm leading-6 text-gray-600">
+                      <label
+                        for="file-upload"
+                        class="relative cursor-pointer rounded-md bg-white font-semibold text-indigo-600 focus-within:outline-none focus-within:ring-2 focus-within:ring-indigo-600 focus-within:ring-offset-2 hover:text-indigo-500"
+                      >
+                        <span>Upload a file</span>
+                        <input
+                          id="file-upload"
+                          name="file"
+                          type="file"
+                          class="sr-only"
+                          accept=".docx"
+                        />
+                      </label>
+                      <p class="pl-1">or drag and drop</p>
+                    </div>
+                    <p class="text-xs leading-5 text-gray-600">
+                      .docx up to 20MB
+                    </p>
+                    <p
+                      id="fileName"
+                      class="text-sm font-medium text-indigo-600 mt-2"
+                    ></p>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <h2 class="text-xl font-semibold text-gray-800 mb-4">
+                  2. Define the Editorial Context
+                </h2>
+                <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                  <div>
+                    <label
+                      for="author_persona"
+                      class="block text-sm font-medium leading-6 text-gray-900"
+                      >Author's Persona</label
+                    >
+                    <textarea
+                      id="author_persona"
+                      name="author_persona"
+                      rows="3"
+                      class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                      placeholder="e.g., An 85-year-old retired professor of philosophy..."
+                    ></textarea>
+                  </div>
+                  <div>
+                    <label
+                      for="book_summary"
+                      class="block text-sm font-medium leading-6 text-gray-900"
+                      >Book's Core Message</label
+                    >
+                    <textarea
+                      id="book_summary"
+                      name="book_summary"
+                      rows="3"
+                      class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                      placeholder="e.g., A reflective memoir on the changing world and timeless wisdom."
+                    ></textarea>
+                  </div>
+                  <div class="col-span-full">
+                    <label
+                      for="language_rules"
+                      class="block text-sm font-medium leading-6 text-gray-900"
+                      >Language & Special Rules</label
+                    >
+                    <input
+                      type="text"
+                      id="language_rules"
+                      name="language_rules"
+                      class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                      placeholder="e.g., Italicize Sanskrit words. Place Hindi dialogue in quotes."
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <h2 class="text-xl font-semibold text-gray-800 mb-4">
+                  3. Set Document Formatting
+                </h2>
+                <div class="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-4">
+                  <div>
+                    <label
+                      for="font_family"
+                      class="block text-sm font-medium text-gray-900"
+                      >Font</label
+                    >
+                    <select
+                      id="font_family"
+                      name="font_family"
+                      class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                    >
+                      <option>Times New Roman</option>
+                      <option>Arial</option>
+                      <option>Georgia</option>
+                      <option>Verdana</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label
+                      for="font_size"
+                      class="block text-sm font-medium text-gray-900"
+                      >Font Size (pt)</label
+                    >
+                    <input
+                      type="number"
+                      id="font_size"
+                      name="font_size"
+                      value="12"
+                      class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label
+                      for="line_spacing"
+                      class="block text-sm font-medium text-gray-900"
+                      >Line Spacing</label
+                    >
+                    <select
+                      id="line_spacing"
+                      name="line_spacing"
+                      class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                    >
+                      <option value="1.0">Single</option>
+                      <option value="1.5" selected>1.5</option>
+                      <option value="2.0">Double</option>
+                    </select>
+                  </div>
+                  <div
+                    class="col-span-full grid grid-cols-2 sm:grid-cols-4 gap-4 mt-2"
+                  >
+                    <label
+                      class="col-span-full text-sm font-medium text-gray-900"
+                      >Margins (inches)</label
+                    >
+                    <input
+                      type="number"
+                      id="margin_top"
+                      name="margin_top"
+                      value="1.0"
+                      step="0.1"
+                      placeholder="Top"
+                      class="block w-full rounded-md border-gray-300 shadow-sm sm:text-sm"
+                    />
+                    <input
+                      type="number"
+                      id="margin_bottom"
+                      name="margin_bottom"
+                      value="1.0"
+                      step="0.1"
+                      placeholder="Bottom"
+                      class="block w-full rounded-md border-gray-300 shadow-sm sm:text-sm"
+                    />
+                    <input
+                      type="number"
+                      id="margin_left"
+                      name="margin_left"
+                      value="1.0"
+                      step="0.1"
+                      placeholder="Left"
+                      class="block w-full rounded-md border-gray-300 shadow-sm sm:text-sm"
+                    />
+                    <input
+                      type="number"
+                      id="margin_right"
+                      name="margin_right"
+                      value="1.0"
+                      step="0.1"
+                      placeholder="Right"
+                      class="block w-full rounded-md border-gray-300 shadow-sm sm:text-sm"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="mt-10">
+              <button
+                type="submit"
+                class="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              >
+                Process and Download Document
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <!-- Interactive Editor -->
+        <div id="interactiveEditor" class="hidden">
+          <div class="space-y-6">
+            <div>
+              <label
+                for="text_snippet"
+                class="block text-sm font-medium text-gray-900"
+                >Text Snippet</label
+              >
+              <textarea
+                id="text_snippet"
+                rows="5"
+                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                placeholder="Paste a sentence or paragraph here..."
+              ></textarea>
+            </div>
+            <div>
+              <label
+                for="edit_command"
+                class="block text-sm font-medium text-gray-900"
+                >Editing Command</label
+              >
+              <input
+                type="text"
+                id="edit_command"
+                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                placeholder="e.g., Rephrase this more formally, Correct grammar, Simplify this text"
+              />
+            </div>
+            <button
+              id="interactiveSubmit"
+              class="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700"
+            >
+              Apply Edit
+            </button>
+            <div>
+              <label class="block text-sm font-medium text-gray-900"
+                >Result</label
+              >
+              <div
+                id="interactiveResult"
+                class="mt-1 p-4 w-full h-32 bg-gray-100 rounded-md border border-gray-300 overflow-y-auto"
+              ></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Analysis Section -->
+        <div id="analysisSection" class="hidden">
+          <p class="text-sm text-gray-600 mb-4">
+            Upload a document to generate a glossary of key terms and a
+            consistency report.
+          </p>
+          <div id="analysisResult" class="mt-4 space-y-6"></div>
+        </div>
+      </main>
+    </div>
+
+    <!-- Loading Modal -->
+    <div id="loadingModal" class="modal-overlay hidden">
+      <div class="bg-white p-8 rounded-lg shadow-xl text-center">
+        <div class="loader mx-auto"></div>
+        <p id="loadingText" class="mt-4 text-lg font-medium text-gray-700">
+          Processing your document...
+        </p>
+      </div>
+    </div>
+
+    <script>
+      const API_BASE_URL = "http://127.0.0.1:8000";
+
+      const uploadForm = document.getElementById("uploadForm");
+      const fileUpload = document.getElementById("file-upload");
+      const fileNameDisplay = document.getElementById("fileName");
+      const loadingModal = document.getElementById("loadingModal");
+      const loadingText = document.getElementById("loadingText");
+
+      const interactiveSubmitBtn = document.getElementById("interactiveSubmit");
+      const interactiveResult = document.getElementById("interactiveResult");
+
+      // --- Tab Switching Logic ---
+      const mainProcessor = document.getElementById("mainProcessor");
+      const interactiveEditor = document.getElementById("interactiveEditor");
+      const analysisSection = document.getElementById("analysisSection");
+
+      const tabs = {
+        main: {
+          btn: document.getElementById("tab-main"),
+          panel: mainProcessor,
+        },
+        interactive: {
+          btn: document.getElementById("tab-interactive"),
+          panel: interactiveEditor,
+        },
+        analyze: {
+          btn: document.getElementById("tab-analyze"),
+          panel: analysisSection,
+        },
+      };
+
+      function switchTab(activeTab) {
+        Object.keys(tabs).forEach((key) => {
+          const is_active = key === activeTab;
+          tabs[key].btn.classList.toggle("tab-active", is_active);
+          tabs[key].btn.classList.toggle("tab-inactive", !is_active);
+          tabs[key].panel.classList.toggle("hidden", !is_active);
+        });
+        // For analyze tab, if it's active and has no content, show the upload prompt.
+        if (activeTab === "analyze") analysisSection.classList.remove("hidden");
+        else if (activeTab === "interactive")
+          interactiveEditor.classList.remove("hidden");
+        else mainProcessor.classList.remove("hidden");
+      }
+
+      fileUpload.addEventListener("change", () => {
+        if (fileUpload.files.length > 0) {
+          fileNameDisplay.textContent = fileUpload.files[0].name;
+        }
+      });
+
+      // --- Main Document Processing ---
+      uploadForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+
+        const formData = new FormData(uploadForm);
+        const file = fileUpload.files[0];
+
+        if (!file) {
+          alert("Please select a .docx file to upload.");
+          return;
+        }
+
+        // Check if the current active tab is 'analyze'
+        if (tabs.analyze.btn.classList.contains("tab-active")) {
+          handleAnalysis(file, formData);
+        } else {
+          handleProofreading(file, formData);
+        }
+      });
+
+      async function handleProofreading(file, formData) {
+        showLoader("Processing and formatting...");
+
+        try {
+          const response = await fetch(`${API_BASE_URL}/process-document/`, {
+            method: "POST",
+            body: formData,
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.detail || "An unknown error occurred.");
+          }
+
+          const blob = await response.blob();
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.style.display = "none";
+          a.href = url;
+          a.download = `edited_${file.name}`;
+          document.body.appendChild(a);
+          a.click();
+          window.URL.revokeObjectURL(url);
+          a.remove();
+        } catch (error) {
+          console.error("Error:", error);
+          alert(`Failed to process document: ${error.message}`);
+        } finally {
+          hideLoader();
+        }
+      }
+
+      async function handleAnalysis(file, formData) {
+        showLoader("Analyzing document...");
+        const analysisResultDiv = document.getElementById("analysisResult");
+        analysisResultDiv.innerHTML = ""; // Clear previous results
+
+        const analysisFormData = new FormData();
+        analysisFormData.append("file", file);
+
+        try {
+          const response = await fetch(`${API_BASE_URL}/analyze-document/`, {
+            method: "POST",
+            body: analysisFormData,
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.detail || "Analysis failed.");
+          }
+
+          const data = await response.json();
+
+          // Render Glossary
+          let glossaryHtml = '<h3 class="text-lg font-semibold">Glossary</h3>';
+          if (data.glossary && data.glossary.length > 0) {
+            glossaryHtml +=
+              '<dl class="mt-2 space-y-2 border-l-2 border-gray-200 pl-4">';
+            data.glossary.forEach((item) => {
+              glossaryHtml += `<dt class="font-medium text-gray-900">${item.term}</dt><dd class="text-gray-700">${item.definition}</dd>`;
+            });
+            glossaryHtml += "</dl>";
+          } else {
+            glossaryHtml +=
+              '<p class="text-gray-500">No key terms identified.</p>';
+          }
+          analysisResultDiv.innerHTML += glossaryHtml;
+
+          // Render Consistency Report
+          let consistencyHtml =
+            '<h3 class="text-lg font-semibold mt-6">Consistency Report</h3>';
+          if (data.consistency_report && data.consistency_report.length > 0) {
+            consistencyHtml +=
+              '<ul class="mt-2 list-disc list-inside space-y-1 text-red-600">';
+            data.consistency_report.forEach((item) => {
+              consistencyHtml += `<li>${item}</li>`;
+            });
+            consistencyHtml += "</ul>";
+          } else {
+            consistencyHtml +=
+              '<p class="text-gray-500">No inconsistencies found.</p>';
+          }
+          analysisResultDiv.innerHTML += consistencyHtml;
+        } catch (error) {
+          console.error("Error:", error);
+          analysisResultDiv.innerHTML = `<p class="text-red-500">Failed to analyze document: ${error.message}</p>`;
+        } finally {
+          hideLoader();
+        }
+      }
+
+      // --- Interactive Editing Logic ---
+      interactiveSubmitBtn.addEventListener("click", async () => {
+        const text_snippet = document.getElementById("text_snippet").value;
+        const command = document.getElementById("edit_command").value;
+
+        if (!text_snippet || !command) {
+          alert("Please provide both a text snippet and a command.");
+          return;
+        }
+
+        interactiveResult.innerHTML =
+          '<div class="loader mx-auto h-8 w-8"></div>';
+
+        try {
+          const response = await fetch(`${API_BASE_URL}/interactive-edit/`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ text_snippet, command }),
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.detail || "Failed to apply edit.");
+          }
+
+          const data = await response.json();
+          interactiveResult.textContent = data.edited_snippet;
+        } catch (error) {
+          console.error("Error:", error);
+          interactiveResult.textContent = `Error: ${error.message}`;
+        }
+      });
+
+      // --- Loader Functions ---
+      function showLoader(text) {
+        loadingText.textContent = text;
+        loadingModal.classList.remove("hidden");
+        loadingModal.classList.add("flex");
+      }
+
+      function hideLoader() {
+        loadingModal.classList.add("hidden");
+        loadingModal.classList.remove("flex");
+      }
+
+      // Initialize with the main tab active
+      switchTab("main");
+    </script>
+  </body>
+</html>
