@@ -36,7 +36,7 @@ def create_final_docx(params: FinalDocumentData) -> io.BytesIO:
 
     # --- 2. Parse and Add Manuscript Content ---
     content_without_markers = params.edited_manuscript
-    pattern = re.compile(r'(\[(H1|H2|SHLOKA|TRANSLATION|ITALIC)\].*?\[/\2\])', re.DOTALL)
+    pattern = re.compile(r'(\[(H1|H2|SHLOKA|TRANSLATION)\].*?\[/\2\])', re.DOTALL)
     
     cursor = 0
     for match in pattern.finditer(content_without_markers):

@@ -20,12 +20,8 @@ except Exception as e:
 
 
 async def detect_languages_in_text(raw_text: str) -> list[str]:
-    """
-    Uses the AI to detect the primary languages present in a text.
-    """
-    # Use a small portion of text for efficiency
+    """Uses the AI to detect the primary languages present in a text."""
     sample_text = (raw_text[:2000] + '...') if len(raw_text) > 2000 else raw_text
-    
     prompt = f"""
     Analyze the following text and identify all significant languages present.
     Your response must be a valid JSON array of strings.
@@ -40,69 +36,66 @@ async def detect_languages_in_text(raw_text: str) -> list[str]:
     """
     try:
         response = await model.generate_content_async(prompt)
-        # Clean up and parse the JSON response
         json_text = response.text.strip().replace("```json", "").replace("```", "")
         detected_languages = json.loads(json_text)
         return detected_languages
     except Exception as e:
         print(f"Error during language detection: {e}")
-        # Default fallback
         return ["English"]
 
 
 def generate_final_editor_prompt(raw_text: str, tone: str, options: FormattingOptions) -> str:
     """
-    Generates the master prompt for the final, detailed editorial pass.
-    This prompt is now dynamically constructed based on user formatting choices.
+    Generates the master prompt for the final editorial pass with strict rules
+    to preserve the original content.
     """
-    
-    # --- Dynamically build language-specific instructions ---
     sanskrit_rules = ""
     if options.sanskrit_shlokas:
         opts = options.sanskrit_shlokas
         sanskrit_rules += "\n    **Sanskrit Shloka Formatting Rules:**\n"
-        sanskrit_rules += "    - Preserve the original Devanagari script perfectly. Do not translate unless it's part of the original text.\n"
+        sanskrit_rules += "    - Preserve the original Devanagari script perfectly.\n"
         sanskrit_rules += "    - Maintain correct Sandhi and Samas (do not break joined words inappropriately).\n"
         if opts.line_breaks:
             sanskrit_rules += "    - Inside the [SHLOKA]...[/SHLOKA] tags, insert a newline character '\\n' to separate each half-verse (pāda).\n"
         if opts.add_numbering:
             sanskrit_rules += "    - If you can identify the source (e.g., Bhagavad Gita), add a citation marker like [CITE: Bhagavad Gita 2.47] immediately after the shloka.\n"
-        sanskrit_rules += f"    - After the shloka, add the English translation. The style should be: '{opts.translation_style}'. Embed this translation inside a [TRANSLATION]...[/TRANSLATION] tag.\n"
+        if opts.translation_style != "No translation":
+             sanskrit_rules += f"    - After the shloka, add the English translation. The style should be: '{opts.translation_style}'. Prefix the translation with the label 'Translation: '. Embed this entire block (label and text) inside a [TRANSLATION]...[/TRANSLATION] tag.\n"
     
     return f"""
-    You are a world-class book editor and typographer with deep expertise in English, Hindi, and Sanskrit.
-    Your task is to transform a raw manuscript into a polished, publication-ready draft, following user-specified formatting rules precisely.
+    You are a technical typesetter and proofreader with deep expertise in English, Hindi, and Sanskrit.
 
-    **CONTEXT:**
-    - **Desired Tone:** {tone}. You must rewrite and adjust sentences to match this tone consistently.
-    
+    **PRIMARY RULE: DO NOT CHANGE THE AUTHOR'S ORIGINAL WORDS OR SENTENCE STRUCTURE.**
+    - Your only job is to fix surface-level errors and apply the formatting markers specified below.
+    - **DO NOT** rewrite, rephrase, or restructure any sentences.
+    - **DO NOT** add any content, ideas, or explanations. The original text must be preserved exactly as written by the author.
+    - The tone '{tone}' is for context only; do not change words to match it.
+
+    **PROOFREADER'S CHECKLIST (Surface-level fixes ONLY):**
+    1.  **Correct Errors:** Fix obvious spelling mistakes, grammatical errors (like subject-verb agreement), punctuation, and typos.
+    2.  **Transliterate Correctly:** Convert any Hindi/Sanskrit words typed in English (e.g., "anushasan") to Devanagari script (e.g., अनुशासन). This is a correction, not a content change.
+    3.  **Capitalization:** Ensure proper capitalization at the start of sentences and for proper nouns.
+
     **SPECIFIC FORMATTING RULES:**
     {sanskrit_rules if sanskrit_rules else "    - No special language formatting requested."}
 
-    **GENERAL PROOFREADER'S & EDITOR'S CHECKLIST:**
-    1.  **Correct All Errors:** Fix spelling, grammar, punctuation, and typos.
-    2.  **Restructure Sentences:** Rephrase awkward sentences for clarity and flow, adhering to the '{tone}' tone.
-    3.  **Transliterate Correctly:** Convert any Hindi/Sanskrit words typed in English (e.g., "anushasan") to Devanagari script (e.g., अनुशासन).
-
     **OUTPUT MARKER INSTRUCTIONS (MANDATORY):**
-    You MUST use the following markers to structure your output.
+    You MUST use the following markers to structure your output. Do not use any markdown.
     - `[H1]Your Heading[/H1]` for main headings.
     - `[H2]Your Subheading[/H2]` for subheadings.
-    - `[ITALIC]Your Text[/ITALIC]` for emphasis.
     - `[SHLOKA]...[/SHLOKA]` to enclose a Sanskrit shloka.
     - `[TRANSLATION]...[/TRANSLATION]` to enclose the English translation of a shloka.
 
-    **MANUSCRIPT TO EDIT:**
+    **MANUSCRIPT TO PROCESS:**
     ---
     {raw_text}
     ---
 
-    Return only the fully edited and formatted manuscript text, adhering to all rules.
+    Return only the corrected and formatted manuscript text, adhering strictly to all rules.
     """
 
 def generate_glossary_prompt(edited_text: str) -> str:
-    """Generates a prompt to extract a glossary. (This function remains the same)"""
-    # ... (code from previous version is unchanged) ...
+    """Generates a prompt to extract a glossary."""
     return f"""
     You are a linguistic analyst. Analyze the following manuscript to produce a glossary of all non-English terms.
     Your output MUST be a valid JSON array of objects. Each object must have four keys: "term", "transliteration", "translation", and "context".
@@ -125,10 +118,7 @@ def generate_glossary_prompt(edited_text: str) -> str:
     """
 
 async def finalize_manuscript(raw_text: str, tone: str, options: FormattingOptions, generate_glossary: bool) -> Dict[str, Any]:
-    """
-    Orchestrates the two-stage AI processing pipeline for the final edit.
-    """
-    # STAGE 1: The Editor Pass with detailed formatting
+    """Orchestrates the two-stage AI processing pipeline for the final edit."""
     editor_prompt = generate_final_editor_prompt(raw_text, tone, options)
     try:
         edited_response = await model.generate_content_async(editor_prompt)
@@ -137,8 +127,6 @@ async def finalize_manuscript(raw_text: str, tone: str, options: FormattingOptio
         print(f"Error during Stage 1 (Editor Pass): {e}")
         raise RuntimeError("AI failed during the main editing phase.")
 
-    # STAGE 2: The Analyst Pass (Glossary & Citations)
-    # ... (code from previous version is unchanged) ...
     glossary_data = []
     if generate_glossary:
         glossary_prompt = generate_glossary_prompt(edited_manuscript)

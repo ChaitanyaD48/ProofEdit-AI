@@ -41,7 +41,7 @@ class FinalizeRequest(BaseModel):
     Payload for the main AI editing and processing endpoint.
     """
     raw_text: str
-    tone: str
+    tone: str # Although we won't rewrite for tone, it can provide context for ambiguity.
     generate_glossary: bool = True
     formatting_options: FormattingOptions
 
